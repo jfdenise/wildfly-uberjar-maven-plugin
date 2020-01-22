@@ -79,6 +79,42 @@
         </exclusion>
       </exclusions>
     </dependency>
+    
+    <dependency>
+      <groupId>org.wildfly.core</groupId>
+      <artifactId>wildfly-version</artifactId>
+      <exclusions>
+        <!-- so its dependencies are not included in shaded jar -->
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    
+     <dependency>
+      <groupId>org.wildfly.core</groupId>
+      <artifactId>wildfly-server</artifactId>
+      <exclusions>
+        <!-- so its dependencies are not included in shaded jar -->
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    
+    <dependency>
+      <groupId>org.wildfly.security</groupId>
+      <artifactId>wildfly-security-manager</artifactId>
+      <exclusions>
+        <!-- so its dependencies are not included in shaded jar -->
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
 
     <dependency>
       <groupId>org.jboss</groupId>

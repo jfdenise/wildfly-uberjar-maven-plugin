@@ -64,7 +64,7 @@ public interface UberJarLogger extends BasicLogger {
 
     @LogMessage(level = INFO)
     @Message(id = 7, value = "Installed server and application in %s, took %sms")
-    void advertiseStart(Path home, long duration);
+    void advertiseInstall(Path home, long duration);
 
     @LogMessage(level = WARN)
     @Message(id = 8, value = "Can't restart server, already shutdown")
@@ -108,4 +108,19 @@ public interface UberJarLogger extends BasicLogger {
 
     @Message(id = Message.NONE, value = "Set a security property")
     String argSecurityProperty();
+
+    @Message(id = Message.NONE, value = "Path to a CLI script to execute at boot time")
+    String argCliScript();
+
+    @Message(id = Message.NONE, value = "Path to a deployment (ear, jar, war) to install inside the hollow uber jar")
+    String argDeployment();
+
+    @Message(id = Message.NONE, value = "Path to server standalone XML config to be used by the uber jar")
+    String argExternalConfig();
+
+    @Message(id = Message.NONE, value = "Path to non existing directory in which the server will be installed. By default the server is installed in a tmp directory")
+    String argServerDir();
+
+    @Message(id = Message.NONE, value = "Do not delete the server installation dir when exiting")
+    String argNoDelete();
 }

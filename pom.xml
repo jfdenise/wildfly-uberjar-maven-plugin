@@ -222,6 +222,23 @@
       </dependency>
       
       <dependency>
+        <groupId>org.wildfly.core</groupId>
+        <artifactId>wildfly-server</artifactId>
+        <version>${version.org.wildfly.core.wildfly-core}</version>
+      </dependency>
+      
+      <dependency>
+          <groupId>org.wildfly.core</groupId>
+          <artifactId>wildfly-version</artifactId>
+          <version>${version.org.wildfly.core.wildfly-core}</version>
+      </dependency>
+      <dependency>
+          <groupId>org.wildfly.security</groupId>
+          <artifactId>wildfly-security-manager</artifactId>
+          <version>1.1.2.Final</version>
+      </dependency>
+      
+      <dependency>
         <groupId>org.wildfly.plugins</groupId>
         <artifactId>wildfly-plugin-core</artifactId>
         <version>${version.org.wildfly.plugins.wildfly-maven-plugin}</version>

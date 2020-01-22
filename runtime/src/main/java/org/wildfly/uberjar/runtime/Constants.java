@@ -29,7 +29,7 @@ class Constants {
     public static final String DEPLOYMENT = "--deployment";
     public static final String DEPLOYMENT_PROP = UBERJAR + "deployment";
     public static final String EXTERNAL_SERVER_CONFIG_PROP = UBERJAR + "server.config";
-    public static final String EXTERNAL_SERVER_CONFIG = "--server-config";
+    public static final String EXTERNAL_SERVER_CONFIG = "--external-server-config";
     public static final String CLI_SCRIPT = "--cli-script";
     public static final String CLI_SCRIPT_PROP = UBERJAR + "cli.script";
     public static final String SERVER_DIR = "--server-dir";

@@ -16,6 +16,8 @@
  */
 package org.wildfly.uberjar.runtime;
 
+import org.wildfly.security.manager.WildFlySecurityManager;
+
 /**
  *
  * @author jdenise
@@ -23,13 +25,15 @@ package org.wildfly.uberjar.runtime;
 public class Main {
 
     public static void main(String[] args) throws Exception {
-        Arguments arguments = Arguments.parseArguments(args);
-        if (arguments.isHelp()) {
-            CmdUsage.printUsage(System.out);
-        } else {
-            UberJar uberjar = new UberJar(arguments);
-            uberjar.run();
+        UberJarServerEnvironment env = UberJarServerEnvironment.buildEnvironment(args);
+        if (env == null) {
+            return;
         }
+        for (String name : env.getSystemProperties().stringPropertyNames()) {
+            WildFlySecurityManager.setPropertyPrivileged(name, env.getSystemProperties().getProperty(name));
+        }
+        UberJar uberjar = new UberJar(env);
+        uberjar.run();
     }
 
 }

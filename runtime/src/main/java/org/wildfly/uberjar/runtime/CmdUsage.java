@@ -28,6 +28,20 @@ import org.wildfly.uberjar.runtime._private.UberJarLogger;
  */
 public class CmdUsage extends CommandLineArgumentUsage {
     public static void init() {
+        addArguments(Constants.CLI_SCRIPT);
+        instructions.add(UberJarLogger.ROOT_LOGGER.argCliScript());
+
+        addArguments(Constants.DEPLOYMENT);
+        instructions.add(UberJarLogger.ROOT_LOGGER.argDeployment());
+
+        addArguments(Constants.EXTERNAL_SERVER_CONFIG);
+        instructions.add(UberJarLogger.ROOT_LOGGER.argExternalConfig());
+
+        addArguments(Constants.SERVER_DIR);
+        instructions.add(UberJarLogger.ROOT_LOGGER.argServerDir());
+
+        addArguments(Constants.NO_DELETE_SERVER_DIR);
+        instructions.add(UberJarLogger.ROOT_LOGGER.argNoDelete());
 
         addArguments(CommandLineConstants.PUBLIC_BIND_ADDRESS + " <value>", CommandLineConstants.PUBLIC_BIND_ADDRESS + "=<value>");
         instructions.add(UberJarLogger.ROOT_LOGGER.argPublicBindAddress());
@@ -58,6 +72,6 @@ public class CmdUsage extends CommandLineArgumentUsage {
     }
     public static void printUsage(final PrintStream out) {
         init();
-        out.print(usageUberJar());
+        out.print(customUsage("java -jar <uber jar>"));
     }
 }
