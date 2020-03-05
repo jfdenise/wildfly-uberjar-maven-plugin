@@ -49,6 +49,8 @@ import static org.wildfly.bootablejar.runtime.Constants.LOG_MANAGER_PROP;
 import org.wildfly.bootablejar.runtime._private.BootableJarLogger;
 import org.wildfly.core.launcher.Launcher;
 import org.wildfly.core.launcher.StandaloneCommandBuilder;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 /**
  *
@@ -101,9 +103,35 @@ class BootableJar {
         jbossHome = arguments.installDir() == null ? Files.createTempDirectory("wildfly-bootable-server") : arguments.installDir();
 
         long t = System.currentTimeMillis();
-        try (InputStream wf = Main.class.getResourceAsStream("/wildfly.zip")) {
-            unzip(wf, jbossHome.toFile());
+        byte[] buffer = new byte[1024];
+        try (InputStream wf = Main.class.getResourceAsStream("/wildfly.index")) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(wf));
+            reader.lines().forEach((line) -> {
+                try {
+                    Path target = jbossHome.resolve(line);
+                    if (line.endsWith("/")) {
+                        Files.createDirectories(target);
+                    } else {
+                        try (InputStream file = Main.class.getResourceAsStream("/wildfly/" + line)) {
+                            try (FileOutputStream fos = new FileOutputStream(target.toFile())) {
+                                int len;
+                                while ((len = file.read(buffer)) > 0) {
+                                    fos.write(buffer, 0, len);
+                                }
+                            }
+                            if (target.toFile().getName().endsWith(".sh")) {
+                                Files.setPosixFilePermissions(target, EXECUTE_PERMISSIONS);
+                            }
+                        }
+                    }
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                }
+            });
         }
+//        try (InputStream wf = Main.class.getResourceAsStream("/wildfly.index")) {
+//            unzip(wf, jbossHome.toFile());
+//        }
 
         addDefaultArguments();
         startServerArgs.addAll(arguments.getServerArguments());

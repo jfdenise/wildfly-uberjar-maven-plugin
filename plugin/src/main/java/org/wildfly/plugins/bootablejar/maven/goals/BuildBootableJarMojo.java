@@ -25,6 +25,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,6 +35,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -246,8 +249,8 @@ public final class BuildBootableJarMojo extends AbstractMojo {
         Path jarFile = Paths.get(project.getBuild().getDirectory()).resolve(outputFileName);
         IoUtils.recursiveDelete(contentRoot);
 
-        Path wildflyDir = contentRoot.resolve("wildfly");
         Path contentDir = contentRoot.resolve("jar-content");
+        Path wildflyDir = contentDir.resolve("wildfly");
         try {
             Files.createDirectories(contentRoot);
             Files.createDirectories(contentDir);
@@ -268,7 +271,10 @@ public final class BuildBootableJarMojo extends AbstractMojo {
                 configureScanner(deployments, commands);
             }
             executeCliScript(wildflyDir, commands);
-            zipServer(wildflyDir, contentDir);
+            StringBuilder files = new StringBuilder();
+            navigate(wildflyDir, files);
+            Files.write(contentDir.resolve("wildfly.index"), files.toString().getBytes());
+            //zipServer(wildflyDir, contentDir);
             buildJar(contentDir, jarFile);
         } catch (Exception ex) {
             throw new MojoExecutionException("Packaging wildfly failed", ex);
@@ -484,6 +490,33 @@ public final class BuildBootableJarMojo extends AbstractMojo {
     private static void zipServer(Path home, Path contentDir) throws IOException {
         Path target = contentDir.resolve("wildfly.zip");
         ZipUtils.zip(home, target);
+    }
+
+    public static void navigate(Path src, StringBuilder files) throws IOException {
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(src)) {
+            for (Path srcPath : stream) {
+                navigate(src, srcPath, files);
+            }
+        }
+    }
+
+    private static void navigate(Path srcRoot, Path srcPath, StringBuilder files) throws IOException {
+        Files.walkFileTree(srcPath, EnumSet.of(FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE,
+                new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+                    throws IOException {
+                files.append(srcRoot.relativize(dir).toString()).append("/\n");
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                    throws IOException {
+                files.append(srcRoot.relativize(file).toString()).append("\n");
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     private String retrieveRuntimeVersion() throws UnsupportedEncodingException, PlexusConfigurationException, MojoExecutionException {
