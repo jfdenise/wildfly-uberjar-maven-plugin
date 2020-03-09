@@ -20,6 +20,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -256,6 +259,32 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
         }
     }
 
+    @Test
+    public void testSlimServer()
+            throws Exception {
+        Path dir = setupProject("test9-pom.xml", true, null);
+        // Unfortunatly the work dir is the test workdir, so maven-repo is generated in target dir.
+        Path mavenRepo = Paths.get("target").resolve("maven-repo");
+        try {
+            BuildBootableJarMojo mojo = (BuildBootableJarMojo) lookupConfiguredMojo(dir.resolve("pom.xml").toFile(), "package");
+            assertNotNull(mojo);
+            assertFalse(mojo.layers.isEmpty());
+            assertTrue(mojo.layers.size() == 1);
+            assertTrue(mojo.layers.get(0).equals("jaxrs"));
+            assertTrue(mojo.pluginOptions.size() == 2);
+            String p = mojo.pluginOptions.get("jboss-maven-repo");
+            assertFalse(p == null);
+            mojo.execute();
+
+            assertTrue(Files.exists(mavenRepo));
+            checkDeployment(dir, true, mavenRepo);
+
+        } finally {
+            BuildBootableJarMojo.deleteDir(dir);
+            BuildBootableJarMojo.deleteDir(mavenRepo);
+        }
+    }
+
     private void checkJar(Path dir, boolean expectDeployment, boolean isRoot,
             String[] layers, String[] excludedLayers, String... configTokens) throws Exception {
         Path tmpDir = Files.createTempDirectory("bootable-jar-test-unzipped");
@@ -308,20 +337,28 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
     }
 
     private void checkDeployment(Path dir, boolean isRoot) throws Exception {
-        checkURL(dir, "http://127.0.0.1:8080/" + (isRoot ? "" : "test"));
+        checkDeployment(dir, isRoot, null);
+    }
+
+    private void checkDeployment(Path dir, boolean isRoot, Path mavenRepo) throws Exception {
+        checkURL(dir, "http://127.0.0.1:8080/" + (isRoot ? "" : "test"), mavenRepo);
     }
 
     private void checkManagementItf(Path dir) throws Exception {
-        checkURL(dir, "http://127.0.0.1:9990/management");
+        checkManagementItf(dir, null);
     }
 
-    private void checkURL(Path dir, String url) throws Exception {
+    private void checkManagementItf(Path dir, Path mavenRepo) throws Exception {
+        checkURL(dir, "http://127.0.0.1:9990/management", mavenRepo);
+    }
+
+    private void checkURL(Path dir, String url, Path mavenRepo) throws Exception {
         // Uncomment when we can shutdown the server
 
         int timeout = 30000;
         long sleep = 1000;
         boolean success = false;
-        Process p = startServer(dir);
+        Process p = startServer(dir, mavenRepo);
         while (timeout > 0) {
             if (checkURL(url)) {
                 System.out.println("Successfully connected to " + url);
@@ -337,8 +374,14 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
         }
     }
 
-    private Process startServer(Path dir) throws Exception {
-        String[] cmd = {"java", "-jar", dir.resolve("target").resolve("test-wildfly-bootable.jar").toString()};
+    private Process startServer(Path dir, Path mavenRepo) throws Exception {
+        List<String> cmd = new ArrayList<>();
+        cmd.add("java");
+        if (mavenRepo != null) {
+            cmd.add("-Dmaven.repo.local=" + mavenRepo.toFile().getAbsolutePath());
+        }
+        cmd.add("-jar");
+        cmd.add(dir.resolve("target").resolve("test-wildfly-bootable.jar").toString());
         Process p = new ProcessBuilder(cmd).start();
         return p;
         //StartBootableJarMojo mojo = (StartBootableJarMojo) lookupConfiguredMojo(dir.resolve("pom.xml").toFile(), "start");
