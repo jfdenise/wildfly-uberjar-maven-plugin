@@ -56,7 +56,7 @@
                     <plugin-options>
                         <jboss-fork-embedded>true</jboss-fork-embedded>
                         <jboss-maven-dist>true</jboss-maven-dist>
-                        <jboss-gen-maven-repo>target/extra-directories/maven-repo</jboss-gen-maven-repo>
+                        <jboss-maven-repo>target/extra-directories/maven-repo</jboss-maven-repo>
                     </plugin-options>
                     <!-- required by jib to retrieve the bootable jar -->
                     <output-file-name>jaxrs.jar</output-file-name>
@@ -76,7 +76,7 @@
                 <configuration>
                     <containerizingMode>packaged</containerizingMode>
                     <to>
-                        <image>wildfly/jaxrs-jib</image>
+                        <image>wildfly/jaxrs-mvn-jib</image>
                         <!-- to push to external repo -->
                         <!--<image>quay.io/jfdenise/jaxrs-jib</image>-->
                     </to>
