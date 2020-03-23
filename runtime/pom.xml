@@ -32,51 +32,7 @@
   <name>WildFly Bootable Jar runtime</name>
 
   <dependencies>
-      <!-- needed by embedded -->
-    <dependency>
-      <groupId>org.wildfly.common</groupId>
-      <artifactId>wildfly-common</artifactId>
-      <exclusions>
-        <!-- so its dependencies are not included in shaded jar -->
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.wildfly.core</groupId>
-      <artifactId>wildfly-embedded</artifactId>
-      <exclusions>
-        <!-- so its dependencies are not included in shaded jar -->
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.wildfly.core</groupId>
-      <artifactId>wildfly-controller-client</artifactId>
-      <exclusions>
-        <!-- so its dependencies are not included in shaded jar -->
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-        <groupId>org.wildfly.core</groupId>
-        <artifactId>wildfly-launcher</artifactId>
-        <exclusions>
-            <!-- so its dependencies are not included in shaded jar -->
-            <exclusion>
-                <groupId>*</groupId>
-                <artifactId>*</artifactId>
-            </exclusion>
-        </exclusions>
-    </dependency>
+    
     <dependency>
       <groupId>org.wildfly.core</groupId>
       <artifactId>wildfly-process-controller</artifactId>
@@ -90,19 +46,11 @@
     </dependency>
 
     <dependency>
-      <groupId>org.jboss</groupId>
-      <artifactId>jboss-dmr</artifactId>
-    </dependency>
-    <dependency>
       <groupId>org.jboss.modules</groupId>
       <artifactId>jboss-modules</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.jboss.threads</groupId>
-      <artifactId>jboss-threads</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.jboss.logging</groupId>
+        <groupId>org.jboss.logging</groupId>
       <artifactId>jboss-logging</artifactId>
     </dependency>
     <dependency>

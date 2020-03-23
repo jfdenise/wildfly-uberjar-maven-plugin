@@ -19,8 +19,6 @@ package org.wildfly.bootablejar.runtime;
 import java.io.PrintStream;
 
 import org.jboss.as.process.CommandLineArgumentUsage;
-import org.jboss.as.process.CommandLineConstants;
-import org.wildfly.bootablejar.runtime._private.BootableJarLogger;
 
 /**
  *
@@ -29,35 +27,6 @@ import org.wildfly.bootablejar.runtime._private.BootableJarLogger;
 public class CmdUsage extends CommandLineArgumentUsage {
     public static void init() {
 
-        addArguments(Constants.DEPLOYMENT + "=<value>");
-        instructions.add(BootableJarLogger.ROOT_LOGGER.argDeployment());
-
-        addArguments(CommandLineConstants.PUBLIC_BIND_ADDRESS + "=<value>");
-        instructions.add(BootableJarLogger.ROOT_LOGGER.argPublicBindAddress());
-
-        addArguments(CommandLineConstants.PUBLIC_BIND_ADDRESS + "<interface>=<value>");
-        instructions.add(BootableJarLogger.ROOT_LOGGER.argInterfaceBindAddress());
-
-        addArguments(CommandLineConstants.SYS_PROP + "<name>[=<value>]");
-        instructions.add(BootableJarLogger.ROOT_LOGGER.argSystem());
-
-        addArguments(CommandLineConstants.HELP);
-        instructions.add(BootableJarLogger.ROOT_LOGGER.argHelp());
-
-        instructions.add(BootableJarLogger.ROOT_LOGGER.argInstallation());
-        addArguments(Constants.INSTALL_DIR + "=<value>");
-
-        addArguments(CommandLineConstants.PROPERTIES + "=<url>");
-        instructions.add(BootableJarLogger.ROOT_LOGGER.argProperties());
-
-        addArguments(CommandLineConstants.SECURITY_PROP + "<name>[=<value>]");
-        instructions.add(BootableJarLogger.ROOT_LOGGER.argSecurityProperty());
-
-        addArguments(CommandLineConstants.DEFAULT_MULTICAST_ADDRESS + "=<value>");
-        instructions.add(BootableJarLogger.ROOT_LOGGER.argDefaultMulticastAddress());
-
-        addArguments(CommandLineConstants.VERSION);
-        instructions.add(BootableJarLogger.ROOT_LOGGER.argVersion());
     }
     public static void printUsage(final PrintStream out) {
         init();
