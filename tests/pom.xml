@@ -32,10 +32,6 @@
     <name>WildFly Bootable Jar Maven Plugin tests</name>
 
     <dependencies>
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>wildfly-jar-runtime</artifactId>
-        </dependency>
          <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>wildfly-jar-maven-plugin</artifactId>

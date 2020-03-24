@@ -107,7 +107,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             BuildBootableJarMojo mojo = (BuildBootableJarMojo) lookupConfiguredMojo(dir.resolve("pom.xml").toFile(), "package");
             assertNotNull(mojo);
             assertTrue(mojo.cliScriptFiles.isEmpty());
-            assertEquals("wildfly@maven(org.jboss.universe:community-universe)", mojo.featurePackLocation);
+            assertEquals("wildfly@maven(org.jboss.universe:community-universe)#20.0.0.Beta1-SNAPSHOT", mojo.featurePackLocation);
             assertNotNull(mojo.projectBuildDir);
             assertTrue(mojo.excludeLayers.isEmpty());
             assertTrue(mojo.layers.isEmpty());
@@ -139,7 +139,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
 
             mojo.recordState = true;
             mojo.execute();
-            String[] layers = {"jaxrs"};
+            String[] layers = {"jaxrs", "bootable-jar"};
             checkJar(dir, true, true, layers, null);
             checkDeployment(dir, true);
         } finally {
@@ -157,7 +157,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             assertFalse(mojo.rootUrlPath);
             mojo.recordState = true;
             mojo.execute();
-            String[] layers = {"web-server"};
+            String[] layers = {"web-server", "bootable-jar"};
             checkJar(dir, true, false, layers, null);
             checkDeployment(dir, false);
         } finally {
@@ -178,7 +178,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             assertTrue(mojo.cliScriptFiles.get(1).equals("add-prop2.cli"));
             mojo.recordState = true;
             mojo.execute();
-            String[] layers = {"jaxrs"};
+            String[] layers = {"jaxrs", "bootable-jar"};
             checkJar(dir, true, true, layers, null, "foobootable", "foobootable2");
             checkDeployment(dir, true);
         } finally {
@@ -203,7 +203,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             assertTrue(mojo.excludeLayers.get(2).equals("deployment-scanner"));
             mojo.recordState = true;
             mojo.execute();
-            String[] layers = {"cloud-profile", "management"};
+            String[] layers = {"cloud-profile", "management", "bootable-jar"};
             String[] excludedLayers = {"ee-security"};
             checkJar(dir, false, false, layers, excludedLayers);
             checkManagementItf(dir, true);

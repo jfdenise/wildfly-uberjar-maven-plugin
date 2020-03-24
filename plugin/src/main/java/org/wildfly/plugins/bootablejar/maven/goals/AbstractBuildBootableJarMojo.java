@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
@@ -44,8 +43,6 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugin.descriptor.PluginDescriptor;
-import org.apache.maven.plugin.descriptor.PluginDescriptorBuilder;
 import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
@@ -71,6 +68,8 @@ import org.jboss.galleon.config.ProvisioningConfig;
 import org.jboss.galleon.maven.plugin.util.MavenArtifactRepositoryManager;
 import org.jboss.galleon.maven.plugin.util.MvnMessageWriter;
 import org.jboss.galleon.repo.RepositoryArtifactResolver;
+import org.jboss.galleon.runtime.FeaturePackRuntime;
+import org.jboss.galleon.runtime.ProvisioningRuntime;
 import org.jboss.galleon.universe.FeaturePackLocation;
 import org.jboss.galleon.util.IoUtils;
 import org.jboss.galleon.util.ZipUtils;
@@ -235,8 +234,9 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
         } catch (IOException ex) {
             throw new MojoExecutionException("Packaging wildfly failed", ex);
         }
+        String bootVersion = null;
         try {
-            provisionServer(wildflyDir);
+            bootVersion = provisionServer(wildflyDir);
         } catch (ProvisioningException ex) {
             throw new MojoExecutionException("Provisioning failed", ex);
         }
@@ -250,7 +250,7 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
             }
             cleanupServer(wildflyDir);
             zipServer(wildflyDir, contentDir);
-            buildJar(contentDir, jarFile);
+            buildJar(contentDir, jarFile, bootVersion);
         } catch (Exception ex) {
             throw new MojoExecutionException("Packaging wildfly failed", ex);
         }
@@ -427,7 +427,7 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
     }
 
 
-    private void provisionServer(Path home) throws ProvisioningException {
+    private String provisionServer(Path home) throws ProvisioningException {
         final RepositoryArtifactResolver artifactResolver = offline ? new MavenArtifactRepositoryManager(repoSystem, repoSession)
                 : new MavenArtifactRepositoryManager(repoSystem, repoSession, repositories);
 
@@ -442,6 +442,9 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
             }
             ConfigModel.Builder configBuilder = ConfigModel.
                     builder("standalone", "standalone.xml");
+
+            configBuilder.includeLayer("bootable-jar");
+
             for (String layer : layers) {
                 configBuilder.includeLayer(layer);
             }
@@ -461,10 +464,11 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
             } else if (!pluginOptions.containsKey(Constants.OPTIONAL_PACKAGES)) {
                 pluginOptions.put(Constants.OPTIONAL_PACKAGES, Constants.PASSIVE_PLUS);
             }
+
             FeaturePackConfig dependency = FeaturePackConfig.
                     builder(FeaturePackLocation.fromString(featurePackLocation)).
                     setInheritPackages(false).setInheritConfigs(false).build();
-            config = ProvisioningConfig.builder().addFeaturePackDep(dependency).addConfig(configBuilder.build()).build();
+            config = ProvisioningConfig.builder().addFeaturePackDep(dependency).addOptions(pluginOptions).addConfig(configBuilder.build()).build();
         } else {
             if (Files.exists(provisioningFile)) {
                 config = ProvisioningXmlParser.parse(provisioningFile);
@@ -483,7 +487,7 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
                 FeaturePackConfig dependency = FeaturePackConfig.
                         builder(FeaturePackLocation.fromString(featurePackLocation)).
                         setInheritPackages(true).setInheritConfigs(false).includeDefaultConfig("standalone", "standalone.xml").build();
-                ProvisioningConfig.Builder provBuilder = ProvisioningConfig.builder().addFeaturePackDep(dependency);
+                ProvisioningConfig.Builder provBuilder = ProvisioningConfig.builder().addFeaturePackDep(dependency).addOptions(pluginOptions);
                 if (configBuilder != null) {
                     provBuilder.addConfig(configBuilder.build());
                 }
@@ -498,7 +502,15 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
                 .setLogTime(logTime)
                 .setRecordState(recordState)
                 .build()) {
-            pm.provision(config, pluginOptions);
+            ProvisioningRuntime rt = pm.getRuntime(config);
+            pm.provision(rt.getLayout());
+
+            for (FeaturePackRuntime fprt : rt.getFeaturePacks()) {
+                if (fprt.getFPID().getProducer().getName().equals("wildfly-core")) {
+                    return fprt.getFPID().getBuild();
+                }
+            }
+            throw new ProvisioningException("Server doesn't support bootable jar packaging");
         }
     }
 
@@ -523,37 +535,32 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
         ZipUtils.zip(home, target);
     }
 
-    private String retrieveRuntimeVersion() throws UnsupportedEncodingException, PlexusConfigurationException, MojoExecutionException {
-        InputStream is = getClass().getResourceAsStream("/META-INF/maven/plugin.xml");
-        if (is == null) {
-            throw new MojoExecutionException("Can't retrieve plugin descriptor");
-        }
-        PluginDescriptorBuilder builder = new PluginDescriptorBuilder();
-        PluginDescriptor pluginDescriptor = builder.build(new InputStreamReader(is, "UTF-8"));
-        return pluginDescriptor.getVersion();
-    }
-
-    private void buildJar(Path contentDir, Path jarFile) throws MojoExecutionException, IOException {
+    private void buildJar(Path contentDir, Path jarFile, String bootVersion) throws MojoExecutionException, IOException {
         try {
-            Path rtJarFile = resolveRuntime();
+            Path rtJarFile = resolveBoot(bootVersion);
             ZipUtils.unzip(rtJarFile, contentDir);
             ZipUtils.zip(contentDir, jarFile);
-        } catch (PlexusConfigurationException | UnsupportedEncodingException | ArtifactResolverException e) {
+        } catch (PlexusConfigurationException | UnsupportedEncodingException e) {
             throw new MojoExecutionException("Failed to resolve rt jar ", e);
         }
     }
 
-    private Path resolveRuntime() throws ArtifactResolverException, UnsupportedEncodingException,
+    private Path resolveBoot(String version) throws UnsupportedEncodingException,
             PlexusConfigurationException, MojoExecutionException {
         final ProjectBuildingRequest buildingRequest = new DefaultProjectBuildingRequest(session.getProjectBuildingRequest());
         buildingRequest.setLocalRepository(session.getLocalRepository());
         buildingRequest.setRemoteRepositories(project.getRemoteArtifactRepositories());
 
-        final ArtifactResult result = artifactResolver.resolveArtifact(buildingRequest,
-                new DefaultArtifact("org.wildfly.plugins", "wildfly-jar-runtime", retrieveRuntimeVersion(),
-                        "provided", JAR, null,
-                        new DefaultArtifactHandler(JAR)));
-        return result.getArtifact().getFile().toPath();
+        try {
+            final ArtifactResult result = artifactResolver.resolveArtifact(buildingRequest,
+                    new DefaultArtifact("org.wildfly.core", "wildfly-jar-boot", version,
+                            "provided", JAR, null,
+                            new DefaultArtifactHandler(JAR)));
+            return result.getArtifact().getFile().toPath();
+        } catch (ArtifactResolverException ex) {
+            throw new MojoExecutionException("Can't resolve boot artifact, server depends on wildfly-core "
+                    + version + " that doesn't support bootable jar packaging");
+        }
     }
 
     private void attachJar(Path jarFile) {

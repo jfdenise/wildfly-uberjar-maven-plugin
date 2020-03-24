@@ -44,7 +44,6 @@
   <modules>
     <module>docs</module>
     <module>plugin</module>
-    <module>runtime</module>
     <module>tests</module>
   </modules>
 
@@ -60,7 +59,7 @@
     <version.org.jboss.modules>1.9.2.Final</version.org.jboss.modules>
     <version.org.jboss.threads>2.3.3.Final</version.org.jboss.threads>
     <version.org.wildfly.common>1.5.2.Final</version.org.wildfly.common>
-    <version.org.wildfly.core.wildfly-core>12.0.0.Beta1-SNAPSHOT</version.org.wildfly.core.wildfly-core>
+    <version.org.wildfly.core.wildfly-core>11.0.0.Final</version.org.wildfly.core.wildfly-core>
     <version.org.wildfly.plugins.wildfly-maven-plugin>2.0.1.Final</version.org.wildfly.plugins.wildfly-maven-plugin>
     <!-- required by tests -->
     <version.org.apache.httpcomponents.httpclient>4.5.11</version.org.apache.httpcomponents.httpclient>
@@ -186,25 +185,6 @@
       <dependency>
         <groupId>org.wildfly.core</groupId>
         <artifactId>wildfly-cli</artifactId>
-        <version>${version.org.wildfly.core.wildfly-core}</version>
-      </dependency>
-      
-      <dependency>
-        <groupId>org.wildfly.core</groupId>
-        <artifactId>wildfly-launcher</artifactId>
-        <version>${version.org.wildfly.core.wildfly-core}</version>
-      </dependency>
-   
-      
-      <dependency>
-        <groupId>org.wildfly.core</groupId>
-        <artifactId>wildfly-controller-client</artifactId>
-        <version>${version.org.wildfly.core.wildfly-core}</version>
-      </dependency>
-      
-      <dependency>
-        <groupId>org.wildfly.core</groupId>
-        <artifactId>wildfly-process-controller</artifactId>
         <version>${version.org.wildfly.core.wildfly-core}</version>
       </dependency>
       
