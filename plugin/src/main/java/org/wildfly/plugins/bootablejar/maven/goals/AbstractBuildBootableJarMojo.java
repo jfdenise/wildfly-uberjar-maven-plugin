@@ -209,6 +209,21 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
     @Parameter(alias = "feature-packs", required = true)
     private List<FeaturePack> featurePacks = Collections.emptyList();
 
+    /**
+     * Directory content copied to provisioned server.
+     */
+    @Parameter(alias = "extra-server-content-dir", property = "wildfly.bootable.package.extra.server.content.dir")
+    String extraServerContent;
+
+    /**
+     * To package an existing server
+     */
+    @Parameter(alias = "existing-server", property = "wildfly.bootable.package.existing.server")
+    String existingServer;
+
+    @Parameter(alias = "existing-server-core-version", property = "wildfly.bootable.package.existing.server.core.version")
+    String coreVersion;
+
     private Set<String> extraLayers = new HashSet<>();
 
     @Override
@@ -249,11 +264,20 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
         }
         String bootVersion = null;
         try {
-            bootVersion = provisionServer(wildflyDir);
-        } catch (ProvisioningException ex) {
+            if (existingServer == null) {
+                bootVersion = provisionServer(wildflyDir);
+            } else {
+                if (coreVersion == null) {
+                    throw new ProvisioningException("Null coreVersion, you must set it");
+                }
+                bootVersion = coreVersion;
+                IoUtils.copy(Paths.get(existingServer), wildflyDir);
+            }
+        } catch (ProvisioningException | IOException ex) {
             throw new MojoExecutionException("Provisioning failed", ex);
         }
         try {
+            copyExtraContent(wildflyDir);
             List<String> commands = new ArrayList<>();
             deploy(commands);
             userScripts(commands);
@@ -269,6 +293,16 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
         }
 
         attachJar(jarFile);
+    }
+
+    private void copyExtraContent(Path wildflyDir) throws Exception {
+        if (extraServerContent != null) {
+            Path extraContent = Paths.get(extraServerContent);
+            if (!Files.exists(extraContent)) {
+                throw new Exception("Extra content dir doesn't exist");
+            }
+            IoUtils.copy(extraContent, wildflyDir);
+        }
     }
 
     protected void addExtraLayer(String layer) {
