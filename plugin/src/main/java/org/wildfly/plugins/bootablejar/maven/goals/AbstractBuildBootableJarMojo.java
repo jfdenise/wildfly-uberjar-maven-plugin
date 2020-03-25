@@ -86,6 +86,7 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
     public static final String BOOTABLE_SUFFIX = "wildfly";
     public static final String JAR = "jar";
     public static final String WAR = "war";
+    private static final String MODULE_ID_JAR_RUNTIME = "org.wildfly.bootable-jar";
 
     @Component
     RepositorySystem repoSystem;
@@ -190,8 +191,7 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
     boolean skip;
 
     /**
-     * By default the generated jar is
-     * ${project.build.finalName}-wildfly.jar
+     * By default the generated jar is ${project.build.finalName}-wildfly.jar
      */
     @Parameter(alias = "output-file-name", property = "wildfly.bootable.package.output.file.name")
     String outputFileName;
@@ -426,7 +426,6 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
         return excludeLayers;
     }
 
-
     private String provisionServer(Path home) throws ProvisioningException {
         final RepositoryArtifactResolver artifactResolver = offline ? new MavenArtifactRepositoryManager(repoSystem, repoSession)
                 : new MavenArtifactRepositoryManager(repoSystem, repoSession, repositories);
@@ -442,8 +441,6 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
             }
             ConfigModel.Builder configBuilder = ConfigModel.
                     builder("standalone", "standalone.xml");
-
-            configBuilder.includeLayer("bootable-jar");
 
             for (String layer : layers) {
                 configBuilder.includeLayer(layer);
@@ -503,14 +500,20 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
                 .setRecordState(recordState)
                 .build()) {
             ProvisioningRuntime rt = pm.getRuntime(config);
-            pm.provision(rt.getLayout());
-
+            String version = null;
             for (FeaturePackRuntime fprt : rt.getFeaturePacks()) {
                 if (fprt.getFPID().getProducer().getName().equals("wildfly-core")) {
-                    return fprt.getFPID().getBuild();
+                    version = fprt.getFPID().getBuild();
+                    if (fprt.getPackage(MODULE_ID_JAR_RUNTIME) == null) {
+                        throw new ProvisioningException(MODULE_ID_JAR_RUNTIME + " package not present in config, server doesn't support bootable jar packaging.");
+                    }
                 }
             }
-            throw new ProvisioningException("Server doesn't support bootable jar packaging");
+            if (version == null) {
+                throw new ProvisioningException("Server doesn't support bootable jar packaging");
+            }
+            pm.provision(rt.getLayout());
+            return version;
         }
     }
 

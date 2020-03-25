@@ -8,7 +8,6 @@
     <config model="standalone" name="standalone.xml">
         <layers>
             <include name="web-server"/>
-            <include name="bootable-jar"/>
         </layers>
     </config>
      <options>

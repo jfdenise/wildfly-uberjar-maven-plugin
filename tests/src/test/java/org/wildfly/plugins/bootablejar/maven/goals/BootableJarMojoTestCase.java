@@ -139,7 +139,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
 
             mojo.recordState = true;
             mojo.execute();
-            String[] layers = {"jaxrs", "bootable-jar"};
+            String[] layers = {"jaxrs"};
             checkJar(dir, true, true, layers, null);
             checkDeployment(dir, true);
         } finally {
@@ -157,7 +157,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             assertFalse(mojo.rootUrlPath);
             mojo.recordState = true;
             mojo.execute();
-            String[] layers = {"web-server", "bootable-jar"};
+            String[] layers = {"web-server"};
             checkJar(dir, true, false, layers, null);
             checkDeployment(dir, false);
         } finally {
@@ -178,7 +178,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             assertTrue(mojo.cliScriptFiles.get(1).equals("add-prop2.cli"));
             mojo.recordState = true;
             mojo.execute();
-            String[] layers = {"jaxrs", "bootable-jar"};
+            String[] layers = {"jaxrs"};
             checkJar(dir, true, true, layers, null, "foobootable", "foobootable2");
             checkDeployment(dir, true);
         } finally {
@@ -203,7 +203,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             assertTrue(mojo.excludeLayers.get(2).equals("deployment-scanner"));
             mojo.recordState = true;
             mojo.execute();
-            String[] layers = {"cloud-profile", "management", "bootable-jar"};
+            String[] layers = {"cloud-profile", "management"};
             String[] excludedLayers = {"ee-security"};
             checkJar(dir, false, false, layers, excludedLayers);
             checkManagementItf(dir, true);
