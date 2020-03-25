@@ -49,6 +49,7 @@ import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectHelper;
 import org.apache.maven.project.ProjectBuildingRequest;
+import org.apache.maven.shared.artifact.ArtifactCoordinate;
 import org.apache.maven.shared.artifact.resolve.ArtifactResolver;
 import org.apache.maven.shared.artifact.resolve.ArtifactResolverException;
 import org.apache.maven.shared.artifact.resolve.ArtifactResult;
@@ -65,12 +66,17 @@ import org.jboss.galleon.ProvisioningManager;
 import org.jboss.galleon.config.ConfigModel;
 import org.jboss.galleon.config.FeaturePackConfig;
 import org.jboss.galleon.config.ProvisioningConfig;
+import org.jboss.galleon.maven.plugin.util.ConfigurationId;
+import org.jboss.galleon.maven.plugin.util.FeaturePack;
 import org.jboss.galleon.maven.plugin.util.MavenArtifactRepositoryManager;
 import org.jboss.galleon.maven.plugin.util.MvnMessageWriter;
 import org.jboss.galleon.repo.RepositoryArtifactResolver;
 import org.jboss.galleon.runtime.FeaturePackRuntime;
 import org.jboss.galleon.runtime.ProvisioningRuntime;
 import org.jboss.galleon.universe.FeaturePackLocation;
+import org.jboss.galleon.universe.maven.MavenArtifact;
+import org.jboss.galleon.universe.maven.MavenUniverseException;
+import org.jboss.galleon.universe.maven.repo.MavenRepoManager;
 import org.jboss.galleon.util.IoUtils;
 import org.jboss.galleon.util.ZipUtils;
 import org.jboss.galleon.xml.ProvisioningXmlParser;
@@ -195,6 +201,13 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
      */
     @Parameter(alias = "output-file-name", property = "wildfly.bootable.package.output.file.name")
     String outputFileName;
+
+    /**
+     * A list of feature-pack configurations to install, can be combined with
+     * layers. Overrides galleon/provisioning.xml file.
+     */
+    @Parameter(alias = "feature-packs", required = true)
+    private List<FeaturePack> featurePacks = Collections.emptyList();
 
     private Set<String> extraLayers = new HashSet<>();
 
@@ -426,79 +439,161 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
         return excludeLayers;
     }
 
-    private String provisionServer(Path home) throws ProvisioningException {
+    private String provisionServer(Path home) throws ProvisioningException, MojoExecutionException {
         final RepositoryArtifactResolver artifactResolver = offline ? new MavenArtifactRepositoryManager(repoSystem, repoSession)
                 : new MavenArtifactRepositoryManager(repoSystem, repoSession, repositories);
 
         final Path provisioningFile = getProvisioningFile();
+        ProvisioningConfig.Builder state = null;
         ProvisioningConfig config;
-        if (!layers.isEmpty()) {
-            if (featurePackLocation == null) {
-                throw new ProvisioningException("No server feature-pack location to provision layers, you must set a feature-pack-location.");
-            }
-            if (Files.exists(provisioningFile)) {
-                getLog().warn("Layers defined in pom.xml override provisioning file located in " + provisioningFile);
-            }
-            ConfigModel.Builder configBuilder = ConfigModel.
-                    builder("standalone", "standalone.xml");
-
-            for (String layer : layers) {
-                configBuilder.includeLayer(layer);
-            }
-
-            for (String layer : extraLayers) {
-                if (!layers.contains(layer)) {
-                    configBuilder.includeLayer(layer);
-                }
-            }
-
-            for (String layer : excludeLayers) {
-                configBuilder.excludeLayer(layer);
-            }
-            if (pluginOptions.isEmpty()) {
-                pluginOptions = Collections.
-                        singletonMap(Constants.OPTIONAL_PACKAGES, Constants.PASSIVE_PLUS);
-            } else if (!pluginOptions.containsKey(Constants.OPTIONAL_PACKAGES)) {
-                pluginOptions.put(Constants.OPTIONAL_PACKAGES, Constants.PASSIVE_PLUS);
-            }
-
-            FeaturePackConfig dependency = FeaturePackConfig.
-                    builder(FeaturePackLocation.fromString(featurePackLocation)).
-                    setInheritPackages(false).setInheritConfigs(false).build();
-            config = ProvisioningConfig.builder().addFeaturePackDep(dependency).addOptions(pluginOptions).addConfig(configBuilder.build()).build();
-        } else {
-            if (Files.exists(provisioningFile)) {
-                config = ProvisioningXmlParser.parse(provisioningFile);
-            } else {
-                if (featurePackLocation == null) {
-                    throw new ProvisioningException("No server feature-pack location to provision standalone configuration, you must set a feature-pack-location.");
-                }
-                ConfigModel.Builder configBuilder = null;
-                if (!extraLayers.isEmpty()) {
-                    configBuilder = ConfigModel.
-                            builder("standalone", "standalone.xml");
-                    for (String layer : extraLayers) {
-                        configBuilder.includeLayer(layer);
-                    }
-                }
-                FeaturePackConfig dependency = FeaturePackConfig.
-                        builder(FeaturePackLocation.fromString(featurePackLocation)).
-                        setInheritPackages(true).setInheritConfigs(false).includeDefaultConfig("standalone", "standalone.xml").build();
-                ProvisioningConfig.Builder provBuilder = ProvisioningConfig.builder().addFeaturePackDep(dependency).addOptions(pluginOptions);
-                if (configBuilder != null) {
-                    provBuilder.addConfig(configBuilder.build());
-                }
-                config = provBuilder.build();
-            }
-        }
-        IoUtils.recursiveDelete(home);
-        getLog().info("Building server based on " + config.getFeaturePackDeps() + " galleon feature-packs");
         try (ProvisioningManager pm = ProvisioningManager.builder().addArtifactResolver(artifactResolver)
                 .setInstallationHome(home)
                 .setMessageWriter(new MvnMessageWriter(getLog()))
                 .setLogTime(logTime)
                 .setRecordState(recordState)
                 .build()) {
+
+            if (!featurePacks.isEmpty()) {
+                if (Files.exists(provisioningFile)) {
+                    getLog().warn("Feature packs defined in pom.xml override provisioning file located in " + provisioningFile);
+                }
+                if (featurePackLocation != null) {
+                    throw new MojoExecutionException("Feature packlocation can't be used with a list of feature-packs");
+                }
+                state = ProvisioningConfig.builder();
+
+                for (FeaturePack fp : featurePacks) {
+
+                    if (fp.getLocation() == null && (fp.getGroupId() == null || fp.getArtifactId() == null)
+                            && fp.getNormalizedPath() == null) {
+                        throw new MojoExecutionException("Feature-pack location, Maven GAV or feature pack path is missing");
+                    }
+
+                    final FeaturePackLocation fpl;
+                    if (fp.getNormalizedPath() != null) {
+                        fpl = pm.getLayoutFactory().addLocal(fp.getNormalizedPath(), false);
+                    } else if (fp.getGroupId() != null && fp.getArtifactId() != null) {
+                        Path path = resolveMaven(fp, (MavenRepoManager) artifactResolver);
+                        fpl = pm.getLayoutFactory().addLocal(path, false);
+                    } else {
+                        fpl = FeaturePackLocation.fromString(fp.getLocation());
+                    }
+
+                    final FeaturePackConfig.Builder fpConfig = fp.isTransitive() ? FeaturePackConfig.transitiveBuilder(fpl)
+                            : FeaturePackConfig.builder(fpl);
+                    if (fp.isInheritConfigs() != null) {
+                        fpConfig.setInheritConfigs(fp.isInheritConfigs());
+                    }
+                    if (fp.isInheritPackages() != null) {
+                        fpConfig.setInheritPackages(fp.isInheritPackages());
+                    }
+
+                    if (!fp.getExcludedConfigs().isEmpty()) {
+                        for (ConfigurationId configId : fp.getExcludedConfigs()) {
+                            if (configId.isModelOnly()) {
+                                fpConfig.excludeConfigModel(configId.getId().getModel());
+                            } else {
+                                fpConfig.excludeDefaultConfig(configId.getId());
+                            }
+                        }
+                    }
+                    if (!fp.getIncludedConfigs().isEmpty()) {
+                        for (ConfigurationId configId : fp.getIncludedConfigs()) {
+                            if (configId.isModelOnly()) {
+                                fpConfig.includeConfigModel(configId.getId().getModel());
+                            } else {
+                                fpConfig.includeDefaultConfig(configId.getId());
+                            }
+                        }
+                    }
+
+                    if (!fp.getIncludedPackages().isEmpty()) {
+                        for (String includedPackage : fp.getIncludedPackages()) {
+                            fpConfig.includePackage(includedPackage);
+                        }
+                    }
+                    if (!fp.getExcludedPackages().isEmpty()) {
+                        for (String excludedPackage : fp.getExcludedPackages()) {
+                            fpConfig.excludePackage(excludedPackage);
+                        }
+                    }
+
+                    state.addFeaturePackDep(fpConfig.build());
+                }
+            }
+
+            if (!layers.isEmpty()) {
+                if (featurePackLocation == null && state == null) {
+                    throw new ProvisioningException("No server feature-pack location to provision layers, you must set a feature-pack-location.");
+                }
+                if (Files.exists(provisioningFile)) {
+                    getLog().warn("Layers defined in pom.xml override provisioning file located in " + provisioningFile);
+                }
+                ConfigModel.Builder configBuilder = ConfigModel.
+                        builder("standalone", "standalone.xml");
+
+                for (String layer : layers) {
+                    configBuilder.includeLayer(layer);
+                }
+
+                for (String layer : extraLayers) {
+                    if (!layers.contains(layer)) {
+                        configBuilder.includeLayer(layer);
+                    }
+                }
+
+                for (String layer : excludeLayers) {
+                    configBuilder.excludeLayer(layer);
+                }
+                if (pluginOptions.isEmpty()) {
+                    pluginOptions = Collections.
+                            singletonMap(Constants.OPTIONAL_PACKAGES, Constants.PASSIVE_PLUS);
+                } else if (!pluginOptions.containsKey(Constants.OPTIONAL_PACKAGES)) {
+                    pluginOptions.put(Constants.OPTIONAL_PACKAGES, Constants.PASSIVE_PLUS);
+                }
+                if (state == null) {
+                    state = ProvisioningConfig.builder();
+                    FeaturePackConfig dependency = FeaturePackConfig.
+                            builder(FeaturePackLocation.fromString(featurePackLocation)).
+                            setInheritPackages(false).setInheritConfigs(false).build();
+                    state.addFeaturePackDep(dependency);
+                }
+
+                state.addConfig(configBuilder.build());
+            }
+
+            if (state == null) {
+                if (Files.exists(provisioningFile)) {
+                    config = ProvisioningXmlParser.parse(provisioningFile);
+                } else {
+                    if (featurePackLocation == null) {
+                        throw new ProvisioningException("No server feature-pack location to provision standalone configuration, you must set a feature-pack-location.");
+                    }
+                    ConfigModel.Builder configBuilder = null;
+                    if (!extraLayers.isEmpty()) {
+                        configBuilder = ConfigModel.
+                                builder("standalone", "standalone.xml");
+                        for (String layer : extraLayers) {
+                            configBuilder.includeLayer(layer);
+                        }
+                    }
+                    FeaturePackConfig dependency = FeaturePackConfig.
+                            builder(FeaturePackLocation.fromString(featurePackLocation)).
+                            setInheritPackages(true).setInheritConfigs(false).includeDefaultConfig("standalone", "standalone.xml").build();
+                    ProvisioningConfig.Builder provBuilder = ProvisioningConfig.builder().addFeaturePackDep(dependency).addOptions(pluginOptions);
+                    if (configBuilder != null) {
+                        provBuilder.addConfig(configBuilder.build());
+                    }
+                    config = provBuilder.build();
+                }
+            } else {
+                state.addOptions(pluginOptions);
+                config = state.build();
+            }
+
+            IoUtils.recursiveDelete(home);
+            getLog().info("Building server based on " + config.getFeaturePackDeps() + " galleon feature-packs");
+
             ProvisioningRuntime rt = pm.getRuntime(config);
             String version = null;
             for (FeaturePackRuntime fprt : rt.getFeaturePacks()) {
@@ -611,4 +706,14 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
         }
     }
 
+    private Path resolveMaven(ArtifactCoordinate coordinate, MavenRepoManager resolver) throws MavenUniverseException {
+        final MavenArtifact artifact = new MavenArtifact()
+                .setGroupId(coordinate.getGroupId())
+                .setArtifactId(coordinate.getArtifactId())
+                .setVersion(coordinate.getVersion())
+                .setExtension(coordinate.getExtension())
+                .setClassifier(coordinate.getClassifier());
+        resolver.resolve(artifact);
+        return artifact.getPath();
+    }
 }
