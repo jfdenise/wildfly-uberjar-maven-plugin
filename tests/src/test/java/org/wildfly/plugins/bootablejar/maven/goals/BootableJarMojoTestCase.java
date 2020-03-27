@@ -20,9 +20,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -49,6 +49,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
     private static Path TEST_DIR = null;
     private static Path setupProject(String pomFileName, boolean copyWar, String provisioning, String... cli) throws IOException {
         File pom = getTestFile("src/test/resources/poms/" + pomFileName);
+        File clientPom = getTestFile("src/test/resources/poms/client-pom.xml");
         File war = getTestFile("src/test/resources/test.war");
         assertNotNull(pom);
         assertTrue(pom.exists());
@@ -62,6 +63,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
         }
 
         Path pomFile = TEST_DIR.resolve("pom.xml");
+        Path clientPomFile = TEST_DIR.resolve("client-pom.xml");
         Path target = Files.createDirectory(TEST_DIR.resolve("target"));
         if (copyWar) {
             Files.copy(war.toPath(), target.resolve(war.getName()));
@@ -82,6 +84,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             }
         }
         Files.copy(pom.toPath(), pomFile);
+        Files.copy(clientPom.toPath(), clientPomFile);
         return TEST_DIR;
     }
 
@@ -134,12 +137,12 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             BuildBootableJarMojo mojo = (BuildBootableJarMojo) lookupConfiguredMojo(dir.resolve("pom.xml").toFile(), "package");
             assertNotNull(mojo);
             assertFalse(mojo.layers.isEmpty());
-            assertTrue(mojo.layers.size() == 1);
+            assertTrue(mojo.layers.size() == 2);
             assertTrue(mojo.layers.get(0).equals("jaxrs"));
-
+            assertTrue(mojo.layers.get(1).equals("management"));
             mojo.recordState = true;
             mojo.execute();
-            String[] layers = {"jaxrs"};
+            String[] layers = {"jaxrs", "management"};
             checkJar(dir, true, true, layers, null);
             checkDeployment(dir, true);
         } finally {
@@ -157,7 +160,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             assertFalse(mojo.rootUrlPath);
             mojo.recordState = true;
             mojo.execute();
-            String[] layers = {"web-server"};
+            String[] layers = {"web-server", "management"};
             checkJar(dir, true, false, layers, null);
             checkDeployment(dir, false);
         } finally {
@@ -178,7 +181,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             assertTrue(mojo.cliScriptFiles.get(1).equals("add-prop2.cli"));
             mojo.recordState = true;
             mojo.execute();
-            String[] layers = {"jaxrs"};
+            String[] layers = {"jaxrs", "management"};
             checkJar(dir, true, true, layers, null, "foobootable", "foobootable2");
             checkDeployment(dir, true);
         } finally {
@@ -228,7 +231,7 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
     }
 
     //@Test
-    // Can't run until shutdown is implemented.
+    // Can't run, we can't call start from the mvn tests, break tests.
     public void testDevServer()
             throws Exception {
         Path dir = setupProject("test6-pom.xml", true, null);
@@ -346,14 +349,11 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
     }
 
     private void checkURL(Path dir, String url, boolean start, String... args) throws Exception {
-        // Uncomment when we can shutdown the server
-
         int timeout = 30000;
         long sleep = 1000;
         boolean success = false;
-        Process p = null;
         if (start) {
-            p = startServer(dir, args);
+            startServer(dir, args);
         }
         while (timeout > 0) {
             if (checkURL(url)) {
@@ -364,31 +364,26 @@ public class BootableJarMojoTestCase extends AbstractConfiguredMojoTestCase {
             Thread.sleep(sleep);
             timeout -= sleep;
         }
-        shutdownServer(dir, p);
+        shutdownServer(dir);
         if (!success) {
             throw new Exception("Unable to interact with deployed application");
         }
     }
 
-    private Process startServer(Path dir, String... args) throws Exception {
+    private void startServer(Path dir, String... args) throws Exception {
         String[] cmd = {"java", "-jar", dir.resolve("target").resolve("test-wildfly.jar").toString()};
         List<String> arguments = new ArrayList<>();
         arguments.addAll(Arrays.asList(cmd));
         arguments.addAll(Arrays.asList(args));
         Process p = new ProcessBuilder(arguments).start();
-        return p;
+        // We can't use start in tests, breaks maven test execution.
         //StartBootableJarMojo mojo = (StartBootableJarMojo) lookupConfiguredMojo(dir.resolve("pom.xml").toFile(), "start");
         //mojo.execute();
     }
 
-    private void shutdownServer(Path dir, Process p) throws Exception {
-        if (p == null) {
-            ShutdownBootableJarMojo mojo = (ShutdownBootableJarMojo) lookupConfiguredMojo(dir.resolve("pom.xml").toFile(), "start");
-            mojo.execute();
-        } else {
-            assertTrue(p.isAlive());
-            p.destroy();
-        }
+    private void shutdownServer(Path dir) throws Exception {
+        ShutdownBootableJarMojo mojo = (ShutdownBootableJarMojo) lookupConfiguredMojo(dir.resolve("client-pom.xml").toFile(), "shutdown");
+        mojo.execute();
     }
 
     private boolean checkURL(String url) throws Exception {

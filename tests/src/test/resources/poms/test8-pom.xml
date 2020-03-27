@@ -19,6 +19,7 @@
                     <feature-pack-location>wildfly@maven(org.jboss.universe:community-universe)#20.0.0.Beta1-SNAPSHOT</feature-pack-location>
                     <layers>
                         <layer>jaxrs</layer>
+                        <layer>management</layer>
                     </layers>
                     <exclude-layers>
                         <layer>deployment-scanner</layer>

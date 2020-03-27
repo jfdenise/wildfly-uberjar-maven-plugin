@@ -20,6 +20,7 @@
                     <skip>true</skip>
                     <layers>
                         <layer>jaxrs</layer>
+                        <layer>management</layer>
                     </layers>
                     <exclude-layers>
                         <layer>deployment-scanner</layer>

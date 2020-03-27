@@ -206,7 +206,7 @@ class AbstractBuildBootableJarMojo extends AbstractMojo {
      * A list of feature-pack configurations to install, can be combined with
      * layers. Overrides galleon/provisioning.xml file.
      */
-    @Parameter(alias = "feature-packs", required = true)
+    @Parameter(alias = "feature-packs", required = false)
     private List<FeaturePack> featurePacks = Collections.emptyList();
 
     /**
